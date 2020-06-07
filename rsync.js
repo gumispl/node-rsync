@@ -499,8 +499,12 @@ Rsync.prototype.execute = function(callback, stdoutHandler, stderrHandler) {
     // see https://github.com/joyent/node/blob/937e2e351b2450cf1e9c4d8b3e1a4e2a2def58bb/lib/child_process.js#L589
     var cmdProc;
     if ('win32' === process.platform) {
-        cmdProc = spawn('cmd.exe', ['/s', '/c', '"' + this.command() + '"'],
+        //skipping cmd.exe shell allows us to correctly get pid of rsync process
+        cmdProc = spawn(this.executable(),  this.args(),
                         { stdio: 'pipe', windowsVerbatimArguments: true, cwd: this._cwd, env: this._env });
+
+        //cmdProc = spawn('cmd.exe', ['/s', '/c', '"' + this.command() + '"'],
+        //                { stdio: 'pipe', windowsVerbatimArguments: true, cwd: this._cwd, env: this._env });
     }
     else {
         cmdProc = spawn(this._executableShell, ['-c', this.command()],
@@ -1017,6 +1021,16 @@ function escapeShellArg(arg) {
  * @return {String} the escaped version of the filename
  */
 function escapeFileArg(filename) {
+  //previous code incorrectly escaped space characters under Windows using '\'
+  if ('win32' === process.platform) {
+    if (filename.includes(' '))
+        filename = "\""+filename+"\""; //if filename contains spaces then escape it in double quotes
+  } else {
+    filename = filename.replace(/(["'`\s\\\(\)\\$])/g,'\\$1');
+  }
+  return filename;   
+
+  /*
   filename = filename.replace(/(["'`\s\\\(\)\\$])/g,'\\$1');
   if (!/(\\\\)/.test(filename)) {
     return filename;
@@ -1028,6 +1042,7 @@ function escapeFileArg(filename) {
     filename = filename.replace(/\\\\/g,'/').replace(/^["]?[A-Z]\:\//ig,'/');
   }
   return filename;
+  */
 }
 
 /**
